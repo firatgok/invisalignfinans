@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Invisalign Finans</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🦷</span>
+      <span class="logo-text">Invisalign Finans</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+      <a href="#" class="nav-item" data-page="patients">
+        <span class="nav-icon">👤</span> Hastalar
+      </a>
+      <a href="#" class="nav-item" data-page="add-patient">
+        <span class="nav-icon">➕</span> Yeni Hasta Ekle
+      </a>
+      <a href="#" class="nav-item" data-page="overdue">
+        <span class="nav-icon">⚠️</span> Vadesi Geçmiş
+      </a>
+      <a href="#" class="nav-item" data-page="reports">
+        <span class="nav-icon">📋</span> Raporlar
+      </a>
+      <a href="#" class="nav-item" data-page="packages">
+        <span class="nav-icon">⚙️</span> Paket Yönetimi
+      </a>
+    </nav>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- DASHBOARD PAGE -->
+    <section id="page-dashboard" class="page active">
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <span class="date-display" id="today-date"></span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card stat-blue">
+          <div class="stat-icon">💰</div>
+          <div class="stat-info">
+            <div class="stat-label">Bu Ay Tahsilat</div>
+            <div class="stat-value" id="stat-collected-month">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <div class="stat-label">Bu Ay Onaylanan Vakalar</div>
+            <div class="stat-value" id="stat-approved-month">0 Vaka</div>
+          </div>
+        </div>
+        <div class="stat-card stat-orange">
+          <div class="stat-icon">🔄</div>
+          <div class="stat-info">
+            <div class="stat-label">Bekleyen Tahsilat</div>
+            <div class="stat-value" id="stat-pending">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-red">
+          <div class="stat-icon">⏰</div>
+          <div class="stat-info">
+            <div class="stat-label">Vadesi Geçmiş</div>
+            <div class="stat-value" id="stat-overdue">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-icon">💸</div>
+          <div class="stat-info">
+            <div class="stat-label">Ödemeden Artan Toplam</div>
+            <div class="stat-value" id="stat-overpay">₺0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-bottom">
+        <div class="card">
+          <div class="card-header">
+            <h2>Son Eklenen Hastalar</h2>
+          </div>
+          <div class="card-body">
+            <table class="table" id="recent-patients-table">
+              <thead>
+                <tr>
+                  <th>Hasta No</th>
+                  <th>Ad Soyad</th>
+                  <th>Paket</th>
+                  <th>Fatura Tutarı</th>
+                  <th>Vade Tarihi</th>
+                  <th>Durum</th>
+                </tr>
+              </thead>
+              <tbody id="recent-patients-body">
+                <tr><td colspan="6" class="empty-row">Yükleniyor...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PATIENTS PAGE -->
+    <section id="page-patients" class="page">
+      <div class="page-header">
+        <h1>Hasta Listesi</h1>
+        <div class="header-actions">
+          <div class="search-box">
+            <input type="text" id="patient-search" placeholder="Hasta ara (isim veya no)..." />
+          </div>
+          <select id="filter-status" class="select-filter">
+            <option value="">Tüm Durumlar</option>
+            <option value="paid">Ödendi</option>
+            <option value="partial">Kısmi Ödendi</option>
+            <option value="pending">Bekliyor</option>
+            <option value="overdue">Vadesi Geçmiş</option>
+          </select>
+          <button class="btn btn-primary" onclick="showPage('add-patient')">+ Yeni Hasta</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="table" id="patients-table">
+            <thead>
+              <tr>
+                <th>Hasta No</th>
+                <th>Ad Soyad</th>
+                <th>Paket</th>
+                <th>Fatura Tutarı</th>
+                <th>Clincheck Tarihi</th>
+                <th>Vade Tarihi</th>
+                <th>1. Taksit</th>
+                <th>2. Taksit</th>
+                <th>Kalan</th>
+                <th>Artan Tutar</th>
+                <th>Durum</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="patients-body">
+              <tr><td colspan="11" class="empty-row">Yükleniyor...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADD PATIENT PAGE -->
+    <section id="page-add-patient" class="page">
+      <div class="page-header">
+        <h1 id="form-title">Yeni Hasta Ekle</h1>
+      </div>
+      <div class="card form-card">
+        <div class="card-body">
+          <form id="patient-form">
+            <input type="hidden" id="edit-patient-id" />
+
+            <div class="form-section-title">Hasta Bilgileri</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Hasta Adı Soyadı *</label>
+                <input type="text" id="f-name" required placeholder="Ad Soyad" />
+              </div>
+              <div class="form-group">
+                <label>Hasta Numarası *</label>
+                <input type="text" id="f-number" required placeholder="8 haneli numara" maxlength="8" pattern="[0-9]{8}" title="8 haneli sayısal numara giriniz" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+              </div>
+            </div>
+
+            <div class="form-section-title">Tedavi Bilgileri</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Paket Türü *</label>
+                <select id="f-package" required onchange="updatePackagePrice()">
+                  <option value="">Paket Seçin</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Fatura Tutarı (₺)</label>
+                <input type="number" id="f-invoice-amount" readonly placeholder="Otomatik hesaplanır" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Clincheck Onay Tarihi *</label>
+                <input type="date" id="f-clincheck-date" required onchange="updateDueDate()" />
+              </div>
+              <div class="form-group">
+                <label>Vade Süresi *</label>
+                <div class="radio-group">
+                  <label class="radio-label">
+                    <input type="radio" name="due-days" id="f-due-days" value="30" onchange="updateDueDate()" /> 30 Gün
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="due-days" value="90" onchange="updateDueDate()" /> 90 Gün
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="due-days" value="180" onchange="updateDueDate()" /> 180 Gün
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="max-width:220px;margin-left:auto">
+                <label>Vade Tarihi</label>
+                <input type="date" id="f-due-date" readonly />
+              </div>
+            </div>
+
+            <div class="form-section-title">Ödeme Bilgileri</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>1. Taksit Tutarı (₺)</label>
+                <input type="number" id="f-installment1-amount" min="0" placeholder="0" oninput="updateRemaining()" />
+              </div>
+              <div class="form-group">
+                <label>1. Taksit Tarihi</label>
+                <input type="date" id="f-installment1-date" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>2. Taksit Tutarı (₺)</label>
+                <input type="number" id="f-installment2-amount" min="0" placeholder="0" oninput="updateRemaining()" />
+              </div>
+              <div class="form-group">
+                <label>2. Taksit Tarihi</label>
+                <input type="date" id="f-installment2-date" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group remaining-display">
+                <label>Kalan Tutar (₺)</label>
+                <input type="text" id="f-remaining" readonly placeholder="Otomatik hesaplanır" />
+              </div>
+              <div class="form-group overpay-display">
+                <label>Ödemeden Artan Tutar (₺)</label>
+                <input type="text" id="f-overpay" readonly placeholder="Fazla ödeme yoksa 0" />
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="cancelForm()">İptal</button>
+              <button type="submit" class="btn btn-primary" id="form-submit-btn">Hasta Kaydet</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- OVERDUE PAGE -->
+    <section id="page-overdue" class="page">
+      <div class="page-header">
+        <h1>Vadesi Geçmiş Faturalar</h1>
+        <div class="header-actions">
+          <input type="date" id="overdue-date-filter" />
+          <button class="btn btn-primary" onclick="filterOverdue()">Filtrele</button>
+          <button class="btn btn-secondary" onclick="resetOverdue()">Sıfırla</button>
+        </div>
+      </div>
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card stat-red">
+          <div class="stat-icon">⏰</div>
+          <div class="stat-info">
+            <div class="stat-label">Toplam Vadesi Geçmiş Tutar</div>
+            <div class="stat-value" id="overdue-total">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-orange">
+          <div class="stat-icon">🔢</div>
+          <div class="stat-info">
+            <div class="stat-label">Vadesi Geçmiş Hasta Sayısı</div>
+            <div class="stat-value" id="overdue-count">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="table" id="overdue-table">
+            <thead>
+              <tr>
+                <th>Hasta No</th>
+                <th>Ad Soyad</th>
+                <th>Paket</th>
+                <th>Fatura Tutarı</th>
+                <th>Vade Tarihi</th>
+                <th>Geçen Gün</th>
+                <th>Kalan Tutar</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="overdue-body">
+              <tr><td colspan="8" class="empty-row">Yükleniyor...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPORTS PAGE -->
+    <section id="page-reports" class="page">
+      <div class="page-header">
+        <h1>Aylık Raporlar</h1>
+        <div class="header-actions">
+          <select id="report-month" class="select-filter" onchange="generateReport()"></select>
+          <select id="report-year" class="select-filter" onchange="generateReport()"></select>
+          <button class="btn btn-primary" onclick="exportReportExcel()">⬇️ Excel İndir</button>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="report-stats" style="margin-bottom:24px;">
+        <div class="stat-card stat-blue">
+          <div class="stat-icon">📅</div>
+          <div class="stat-info">
+            <div class="stat-label">O Ayda Onaylanan Vakalar</div>
+            <div class="stat-value" id="rep-approved-cases">0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-icon">💵</div>
+          <div class="stat-info">
+            <div class="stat-label">O Ay İçin Fatura Toplamı</div>
+            <div class="stat-value" id="rep-invoice-total">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-blue">
+          <div class="stat-icon">💰</div>
+          <div class="stat-info">
+            <div class="stat-label">O Ayda Tahsil Edilen</div>
+            <div class="stat-value" id="rep-collected">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-orange">
+          <div class="stat-icon">🔄</div>
+          <div class="stat-info">
+            <div class="stat-label">O Ay İçin Kalan Tahsilat</div>
+            <div class="stat-value" id="rep-remaining">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-icon">💸</div>
+          <div class="stat-info">
+            <div class="stat-label">Ödemeden Artan Toplam</div>
+            <div class="stat-value" id="rep-overpay">₺0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 id="report-table-title">Rapor Detayı</h2>
+        </div>
+        <div class="card-body">
+          <table class="table" id="report-table">
+            <thead>
+              <tr>
+                <th>Hasta No</th>
+                <th>Ad Soyad</th>
+                <th>Paket</th>
+                <th>Fatura Tutarı</th>
+                <th>Clincheck Tarihi</th>
+                <th>1. Taksit</th>
+                <th>2. Taksit</th>
+                <th>Kalan</th>
+                <th>Durum</th>
+              </tr>
+            </thead>
+            <tbody id="report-body">
+              <tr><td colspan="9" class="empty-row">Rapor oluşturmak için ay ve yıl seçin.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PACKAGES PAGE -->
+    <section id="page-packages" class="page">
+      <div class="page-header">
+        <h1>Paket Yönetimi</h1>
+        <button class="btn btn-primary" onclick="showAddPackageModal()">+ Yeni Paket</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="table" id="packages-table">
+            <thead>
+              <tr>
+                <th>Paket Adı</th>
+                <th>Fiyat (₺)</th>
+                <th>Açıklama</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="packages-body">
+              <tr><td colspan="4" class="empty-row">Yükleniyor...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- MODALS -->
+<div id="modal-overlay" class="modal-overlay" style="display:none;">
+
+  <!-- Package Modal -->
+  <div id="modal-package" class="modal" style="display:none;">
+    <div class="modal-header">
+      <h3 id="modal-package-title">Yeni Paket Ekle</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pkg-edit-id" />
+      <div class="form-group">
+        <label>Paket Adı *</label>
+        <input type="text" id="pkg-name" placeholder="örn: Invisalign Lite" />
+      </div>
+      <div class="form-group">
+        <label>Fiyat (₺) *</label>
+        <input type="number" id="pkg-price" min="0" placeholder="örn: 25000" />
+      </div>
+      <div class="form-group">
+        <label>Açıklama</label>
+        <input type="text" id="pkg-desc" placeholder="İsteğe bağlı açıklama" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">İptal</button>
+      <button class="btn btn-primary" onclick="savePackage()">Kaydet</button>
+    </div>
+  </div>
+
+  <!-- Patient Detail Modal -->
+  <div id="modal-patient" class="modal" style="display:none;">
+    <div class="modal-header">
+      <h3>Hasta Detayı</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-patient-body">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Kapat</button>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div id="modal-delete" class="modal modal-sm" style="display:none;">
+    <div class="modal-header">
+      <h3>Hasta Sil</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p>Bu hastayı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">İptal</button>
+      <button class="btn btn-danger" id="confirm-delete-btn">Sil</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast" style="display:none;"></div>
+
+<!-- SheetJS (Excel export) -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<!-- Firebase SDK -->
+<script type="module" src="app.js"></script>
+</body>
+</html>
