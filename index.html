@@ -8,7 +8,30 @@
 </head>
 <body>
 
-<div id="app">
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-container">
+    <div class="login-logo">
+      <span>🦷</span>
+      <h1>Invisalign Finans</h1>
+      <p>Giriş yapmak istediğiniz hesap türünü seçin</p>
+    </div>
+    <div class="login-cards">
+      <div class="login-card" onclick="selectRole('klinik')">
+        <div class="login-card-icon">👨‍⚕️</div>
+        <h2>Klinik Girişi</h2>
+        <p>Tüm finansal verilere tam erişim</p>
+      </div>
+      <div class="login-card" onclick="selectRole('asistan')">
+        <div class="login-card-icon">👩‍💼</div>
+        <h2>Asistan Girişi</h2>
+        <p>Hasta kayıt ve düzenleme</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -17,7 +40,7 @@
       <span class="logo-text">Invisalign Finans</span>
     </div>
     <nav class="sidebar-nav">
-      <a href="#" class="nav-item active" data-page="dashboard">
+      <a href="#" class="nav-item active nav-financial" data-page="dashboard">
         <span class="nav-icon">📊</span> Dashboard
       </a>
       <a href="#" class="nav-item" data-page="patients">
@@ -26,16 +49,26 @@
       <a href="#" class="nav-item" data-page="add-patient">
         <span class="nav-icon">➕</span> Yeni Hasta Ekle
       </a>
-      <a href="#" class="nav-item" data-page="overdue">
+      <a href="#" class="nav-item nav-financial" data-page="overdue">
         <span class="nav-icon">⚠️</span> Vadesi Geçmiş
       </a>
-      <a href="#" class="nav-item" data-page="reports">
+      <a href="#" class="nav-item nav-financial" data-page="reports">
         <span class="nav-icon">📋</span> Raporlar
       </a>
-      <a href="#" class="nav-item" data-page="packages">
+      <a href="#" class="nav-item nav-financial" data-page="packages">
         <span class="nav-icon">⚙️</span> Paket Yönetimi
       </a>
+      <a href="#" class="nav-item nav-financial" data-page="devices">
+        <span class="nav-icon">🦷</span> Cihaz Yönetimi
+      </a>
+      <a href="#" class="nav-item nav-financial" data-page="inception">
+        <span class="nav-icon">📖</span> Hesap Milad Bilançosu
+      </a>
     </nav>
+    <div class="sidebar-footer">
+      <div class="role-indicator" id="role-label"></div>
+      <button class="btn-logout" onclick="logout()">🚪 Çıkış</button>
+    </div>
   </aside>
 
   <!-- MAIN CONTENT -->
@@ -138,14 +171,14 @@
                 <th>Hasta No</th>
                 <th>Ad Soyad</th>
                 <th>Paket</th>
-                <th>Fatura Tutarı</th>
+                <th class="hide-asistan">Fatura Tutarı</th>
                 <th>Clincheck Tarihi</th>
                 <th>Vade Tarihi</th>
-                <th>1. Taksit</th>
-                <th>2. Taksit</th>
-                <th>Kalan</th>
-                <th>Artan Tutar</th>
-                <th>Durum</th>
+                <th class="hide-asistan">1. Taksit</th>
+                <th class="hide-asistan">2. Taksit</th>
+                <th class="hide-asistan">Kalan</th>
+                <th class="hide-asistan">Artan Tutar</th>
+                <th class="hide-asistan">Durum</th>
                 <th>İşlem</th>
               </tr>
             </thead>
@@ -195,11 +228,11 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label>Clincheck Onay Tarihi *</label>
-                <input type="date" id="f-clincheck-date" required onchange="updateDueDate()" />
+                <label>Clincheck Onay Tarihi</label>
+                <input type="date" id="f-clincheck-date" onchange="updateDueDate()" />
               </div>
               <div class="form-group">
-                <label>Vade Süresi *</label>
+                <label>Vade Süresi</label>
                 <div class="radio-group">
                   <label class="radio-label">
                     <input type="radio" name="due-days" id="f-due-days" value="30" onchange="updateDueDate()" /> 30 Gün
@@ -221,29 +254,30 @@
             </div>
 
             <div class="form-section-title">Ödeme Bilgileri</div>
+            <div id="financial-fields-wrapper">
             <div class="form-row">
               <div class="form-group">
                 <label>1. Taksit Tutarı (₺)</label>
-                <input type="number" id="f-installment1-amount" min="0" placeholder="0" oninput="updateRemaining()" />
+                <input type="number" id="f-installment1-amount" min="0" placeholder="0" oninput="onInstallment1Input()" />
               </div>
               <div class="form-group">
                 <label>1. Taksit Tarihi</label>
-                <input type="date" id="f-installment1-date" />
+                <input type="date" id="f-installment1-date" onchange="onInstallment1DateChange()" />
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label>2. Taksit Tutarı (₺)</label>
-                <input type="number" id="f-installment2-amount" min="0" placeholder="0" oninput="updateRemaining()" />
+                <input type="number" id="f-installment2-amount" min="0" placeholder="0" oninput="onInstallment2Input()" />
               </div>
               <div class="form-group">
                 <label>2. Taksit Tarihi</label>
-                <input type="date" id="f-installment2-date" />
+                <input type="date" id="f-installment2-date" onchange="onInstallment2DateChange()" />
               </div>
             </div>
 
-            <div class="form-row">
+            <div class="form-row financial-summary-row">
               <div class="form-group remaining-display">
                 <label>Kalan Tutar (₺)</label>
                 <input type="text" id="f-remaining" readonly placeholder="Otomatik hesaplanır" />
@@ -253,6 +287,7 @@
                 <input type="text" id="f-overpay" readonly placeholder="Fazla ödeme yoksa 0" />
               </div>
             </div>
+            </div><!-- /financial-fields-wrapper -->
 
             <div class="form-actions">
               <button type="button" class="btn btn-secondary" onclick="cancelForm()">İptal</button>
@@ -413,11 +448,250 @@
       </div>
     </section>
 
+    <!-- DEVICES PAGE -->
+    <section id="page-devices" class="page">
+      <div class="page-header">
+        <h1>Cihaz Yönetimi</h1>
+        <button class="btn btn-primary" onclick="showAddDeviceModal()">+ Yeni Cihaz Ekle</button>
+      </div>
+      <div class="stats-grid" style="margin-bottom:24px;">
+        <div class="stat-card stat-red">
+          <div class="stat-icon">💸</div>
+          <div class="stat-info">
+            <div class="stat-label">Toplam Cihaz Borcu</div>
+            <div class="stat-value" id="device-stat-total-debt">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-orange">
+          <div class="stat-icon">🔄</div>
+          <div class="stat-info">
+            <div class="stat-label">Kalan Ödeme</div>
+            <div class="stat-value" id="device-stat-remaining">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <div class="stat-label">Ödenen Toplam</div>
+            <div class="stat-value" id="device-stat-paid">₺0</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="table" id="devices-table">
+            <thead>
+              <tr>
+                <th>Cihaz Adı</th>
+                <th>Firma</th>
+                <th>Toplam Tutar (₺)</th>
+                <th>Fatura Tarihi</th>
+                <th>Ödenen (₺)</th>
+                <th>Kalan (₺)</th>
+                <th>Taksitler</th>
+                <th>Alış Tarihi</th>
+                <th>Notlar</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="devices-body">
+              <tr><td colspan="10" class="empty-row">Yükleniyor...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- INCEPTION BALANCE PAGE -->
+    <section id="page-inception" class="page">
+      <div class="page-header">
+        <h1>Hesap Milad Bilançosu</h1>
+        <span style="color:var(--gray-500);font-size:13px;">Takibe başlanmadan önceki döneme ait toplam mali bilgiler</span>
+      </div>
+
+      <!-- Combined totals summary -->
+      <div class="stats-grid" style="margin-bottom:28px;" id="inception-summary-grid">
+        <div class="stat-card stat-blue">
+          <div class="stat-icon">💰</div>
+          <div class="stat-info">
+            <div class="stat-label">Tüm Zamanlar Hasta Toplam Fatura</div>
+            <div class="stat-value" id="inc-sum-invoice">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <div class="stat-label">Tüm Zamanlar Hasta Tahsil Edilen</div>
+            <div class="stat-value" id="inc-sum-collected">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-orange">
+          <div class="stat-icon">🔄</div>
+          <div class="stat-info">
+            <div class="stat-label">Tüm Zamanlar Hasta Kalan Tahsilat</div>
+            <div class="stat-value" id="inc-sum-remaining">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-blue">
+          <div class="stat-icon">🔧</div>
+          <div class="stat-info">
+            <div class="stat-label">Tüm Zamanlar Cihaz Faturası</div>
+            <div class="stat-value" id="inc-sum-device-invoice">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-icon">💳</div>
+          <div class="stat-info">
+            <div class="stat-label">Tüm Zamanlar Cihaz Ödendi</div>
+            <div class="stat-value" id="inc-sum-device-paid">₺0</div>
+          </div>
+        </div>
+        <div class="stat-card stat-purple">
+          <div class="stat-icon">📈</div>
+          <div class="stat-info">
+            <div class="stat-label">Tüm Zamanlar Hasta+Cihaz Fatura</div>
+            <div class="stat-value" id="inc-sum-grand-invoice">₺0</div>
+            <div class="stat-breakdown">
+              <span>Hasta: <strong id="inc-sub-patient-invoice">₺0</strong></span>
+              <span>Cihaz: <strong id="inc-sub-device-invoice">₺0</strong></span>
+            </div>
+          </div>
+        </div>
+        <div class="stat-card stat-purple">
+          <div class="stat-icon">💵</div>
+          <div class="stat-info">
+            <div class="stat-label">Tüm Zamanlar Hasta+Cihaz Ödeme</div>
+            <div class="stat-value" id="inc-sum-grand-paid">₺0</div>
+            <div class="stat-breakdown">
+              <span>Hasta: <strong id="inc-sub-patient-paid">₺0</strong></span>
+              <span>Cihaz: <strong id="inc-sub-device-paid">₺0</strong></span>
+            </div>
+          </div>
+        </div>
+        <div class="stat-card" id="inc-card-grand-balance">
+          <div class="stat-icon" id="inc-icon-grand-balance">⚖️</div>
+          <div class="stat-info">
+            <div class="stat-label">Tüm Zamanlar Kalan Borç</div>
+            <div class="stat-value" id="inc-sum-grand-balance">₺0</div>
+            <div class="stat-breakdown">
+              <span>Fatura − Ödeme</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card form-card">
+        <div class="card-body">
+          <div class="form-section-title">Önceki Dönem Bilgileri (Milad Öncesi)</div>
+          <p style="color:var(--gray-500);font-size:13px;margin-bottom:20px;">Sisteme geçiş tarihinden önceki tüm işlemlerin toplam bilgilerini girin.</p>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Takip Başlangıç Tarihi</label>
+              <input type="date" id="inc-start-date" />
+            </div>
+            <div class="form-group">
+              <label>Açıklama / Not</label>
+              <input type="text" id="inc-notes" placeholder="Örn: 2019-2023 dönemi" />
+            </div>
+          </div>
+
+          <div class="form-section-title" style="margin-top:8px;">Hasta Fatura & Tahsilat</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Önceki Dönem Toplam Fatura (₺)</label>
+              <input type="number" id="inc-total-invoice" min="0" placeholder="0" oninput="updateInceptionSummary()" />
+            </div>
+            <div class="form-group">
+              <label>Önceki Dönem Tahsil Edilen (₺)</label>
+              <input type="number" id="inc-total-collected" min="0" placeholder="0" oninput="updateInceptionSummary()" />
+            </div>
+          </div>
+
+          <div class="form-section-title" style="margin-top:8px;">Cihaz Borcu</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Önceki Dönem Toplam Cihaz Borcu (₺)</label>
+              <input type="number" id="inc-device-debt" min="0" placeholder="0" oninput="updateInceptionSummary()" />
+            </div>
+            <div class="form-group">
+              <label>Önceki Dönem Ödenen Cihaz Borcu (₺)</label>
+              <input type="number" id="inc-device-paid" min="0" placeholder="0" oninput="updateInceptionSummary()" />
+            </div>
+          </div>
+
+          <div class="form-actions" style="margin-top:24px;">
+            <button class="btn btn-primary" onclick="saveInceptionBalance()">Kaydet</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 </div>
 
 <!-- MODALS -->
 <div id="modal-overlay" class="modal-overlay" style="display:none;">
+
+  <!-- Device Modal -->
+  <div id="modal-device" class="modal" style="display:none;">
+    <div class="modal-header">
+      <h3 id="modal-device-title">Yeni Cihaz Ekle</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="dev-edit-id" />
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cihaz Adı *</label>
+          <input type="text" id="dev-name" placeholder="örn: Align iTero Element" />
+        </div>
+        <div class="form-group">
+          <label>Firma / Tedarikçi</label>
+          <input type="text" id="dev-company" placeholder="örn: Align Technology" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Toplam Tutar (₺) *</label>
+          <input type="number" id="dev-total" min="0" placeholder="0" oninput="updateDeviceRemaining()" />
+        </div>
+        <div class="form-group">
+          <label>Fatura Tarihi</label>
+          <input type="date" id="dev-invoice-date" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Alış Tarihi</label>
+          <input type="date" id="dev-date" />
+        </div>
+        <div class="form-group">
+          <label>Notlar</label>
+          <input type="text" id="dev-notes" placeholder="İsteğe bağlı not" />
+        </div>
+      </div>
+
+      <div class="form-section-title" style="margin-top:12px;">Ödeme Taksitleri</div>
+      <div id="dev-installments-list"></div>
+      <button type="button" class="btn btn-secondary" style="margin-top:8px;" onclick="addDeviceInstallment()">+ Taksit Ekle</button>
+
+      <div class="form-row" style="margin-top:16px;">
+        <div class="form-group">
+          <label>Toplam Ödenen (₺)</label>
+          <input type="text" id="dev-paid-display" readonly placeholder="Otomatik hesaplanır" />
+        </div>
+        <div class="form-group">
+          <label>Kalan Tutar (₺)</label>
+          <input type="text" id="dev-remaining" readonly placeholder="Otomatik hesaplanır" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">İptal</button>
+      <button class="btn btn-primary" onclick="saveDevice()">Kaydet</button>
+    </div>
+  </div>
 
   <!-- Package Modal -->
   <div id="modal-package" class="modal" style="display:none;">

@@ -6,7 +6,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, collection, doc,
-  addDoc, updateDoc, deleteDoc,
+  addDoc, updateDoc, deleteDoc, getDoc, setDoc,
   getDocs, onSnapshot, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -28,7 +28,37 @@ const db = getFirestore(firebaseApp);
 // =============================================
 let allPatients = [];
 let allPackages = [];
+let allDevices  = [];
 let deleteTargetId = null;
+let autoFilledDate1 = false;
+let autoFilledDate2 = false;
+let currentRole = '';
+let listenersStarted = false;
+
+// =============================================
+//  ROLE / LOGIN
+// =============================================
+window.selectRole = function(role) {
+  currentRole = role;
+  document.getElementById('login-screen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.style.display = 'flex';
+  app.classList.remove('role-klinik', 'role-asistan');
+  app.classList.add('role-' + role);
+  document.getElementById('role-label').textContent =
+    role === 'klinik' ? '🔑 Klinik Girişi' : '👩‍💼 Asistan Girişi';
+  if (!listenersStarted) {
+    listenersStarted = true;
+    startListeners();
+  }
+  showPage(role === 'asistan' ? 'patients' : 'dashboard');
+};
+
+window.logout = function() {
+  currentRole = '';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+};
 
 // =============================================
 //  NAVIGATION
@@ -48,6 +78,8 @@ function showPage(pageId) {
   if (pageId === 'overdue')     renderOverdue();
   if (pageId === 'reports')     setupReportSelectors();
   if (pageId === 'packages')    renderPackages();
+  if (pageId === 'devices')     renderDevices();
+  if (pageId === 'inception')   loadInceptionBalance();
   if (pageId === 'add-patient') {
     resetForm();
     populatePackageSelect();
@@ -85,6 +117,12 @@ function daysBetween(dateStr) {
   const now = new Date(); now.setHours(0,0,0,0);
   const d = new Date(dateStr); d.setHours(0,0,0,0);
   return Math.round((now - d) / 86400000);
+}
+
+// Tarih boşsa createdAt'i fallback olarak kullan
+function getInstallmentMonthYear(dateStr, fallbackDateStr) {
+  const d = dateStr || fallbackDateStr || '';
+  return getMonthYear(d ? d.substring(0, 10) : '');
 }
 
 function getMonthYear(dateStr) {
@@ -127,12 +165,21 @@ function startListeners() {
     populatePackageSelect();
   });
 
+  // Devices
+  onSnapshot(query(collection(db, 'devices'), orderBy('createdAt', 'desc')), snap => {
+    allDevices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderDevices();
+  });
+
   // Patients
   onSnapshot(query(collection(db, 'patients'), orderBy('createdAt', 'desc')), snap => {
     allPatients = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderDashboard();
     renderPatients();
     renderOverdue();
+    if (document.getElementById('page-reports').classList.contains('active')) {
+      window.generateReport();
+    }
   });
 }
 
@@ -162,9 +209,10 @@ function renderDashboard() {
     const remaining = diff > 0 ? diff : 0;
     const overpay   = diff < 0 ? Math.abs(diff) : 0;
 
-    // Bu ay tahsilat (ödeme tarihine göre)
-    if (p.installment1Date && getMonthYear(p.installment1Date) === monthKey) collectedMonth += i1;
-    if (p.installment2Date && getMonthYear(p.installment2Date) === monthKey) collectedMonth += i2;
+    // Bu ay tahsilat (ödeme tarihine göre, tarih yoksa createdAt baz alınır)
+    const fallback = p.createdAt ? p.createdAt.substring(0, 10) : '';
+    if ((Number(p.installment1Amount) || 0) > 0 && getInstallmentMonthYear(p.installment1Date, fallback) === monthKey) collectedMonth += i1;
+    if ((Number(p.installment2Amount) || 0) > 0 && getInstallmentMonthYear(p.installment2Date, fallback) === monthKey) collectedMonth += i2;
 
     // Bu ay onaylanan vakalar
     if (p.clincheckDate && getMonthYear(p.clincheckDate) === monthKey) approvedMonth++;
@@ -244,26 +292,26 @@ function applyPatientsFilter() {
       <td>${escHtml(p.patientNumber)}</td>
       <td><strong>${escHtml(p.name)}</strong></td>
       <td>${escHtml(p.packageName || '—')}</td>
-      <td class="amount">${formatCurrency(inv)}</td>
+      <td class="hide-asistan amount">${formatCurrency(inv)}</td>
       <td>${formatDate(p.clincheckDate)}</td>
       <td class="${isOverdue ? 'amount-overdue' : ''}">${formatDate(p.dueDate)}</td>
-      <td>
+      <td class="hide-asistan">
         ${i1 ? `<span class="amount-paid">${formatCurrency(i1)}</span>` : '—'}
         ${p.installment1Date ? `<br><small style="color:var(--gray-400)">${formatDate(p.installment1Date)}</small>` : ''}
       </td>
-      <td>
+      <td class="hide-asistan">
         ${i2 ? `<span class="amount-paid">${formatCurrency(i2)}</span>` : '—'}
         ${p.installment2Date ? `<br><small style="color:var(--gray-400)">${formatDate(p.installment2Date)}</small>` : ''}
       </td>
-      <td class="${remaining > 0 ? (isOverdue ? 'amount-overdue' : 'amount-remaining') : 'amount-paid'}">
+      <td class="hide-asistan ${remaining > 0 ? (isOverdue ? 'amount-overdue' : 'amount-remaining') : 'amount-paid'}">
         ${remaining > 0 ? formatCurrency(remaining) : '✓ Tamamlandı'}
       </td>
-      <td class="amount-paid">${overpay > 0 ? formatCurrency(overpay) : '—'}</td>
-      <td>${statusBadge(status)}</td>
+      <td class="hide-asistan amount-paid">${overpay > 0 ? formatCurrency(overpay) : '—'}</td>
+      <td class="hide-asistan">${statusBadge(status)}</td>
       <td>
         <button class="btn-icon" title="Detay" onclick="showPatientDetail('${p.id}')">👁️</button>
         <button class="btn-icon" title="Düzenle" onclick="editPatient('${p.id}')">✏️</button>
-        <button class="btn-icon" title="Sil" onclick="confirmDeletePatient('${p.id}')">🗑️</button>
+        <button class="btn-icon delete-btn" title="Sil" onclick="confirmDeletePatient('${p.id}')">🗑️</button>
       </td>
     </tr>`;
   }).join('');
@@ -296,13 +344,13 @@ window.showPatientDetail = function(id) {
       <div class="detail-section-title">Tedavi Bilgileri</div>
       <div class="detail-grid">
         <div class="detail-item"><label>Paket</label><div class="detail-value">${escHtml(p.packageName || '—')}</div></div>
-        <div class="detail-item"><label>Fatura Tutarı</label><div class="detail-value">${formatCurrency(inv)}</div></div>
+        <div class="detail-item financial-detail"><label>Fatura Tutarı</label><div class="detail-value">${formatCurrency(inv)}</div></div>
         <div class="detail-item"><label>Clincheck Onay Tarihi</label><div class="detail-value">${formatDate(p.clincheckDate)}</div></div>
         <div class="detail-item"><label>Vade Tarihi</label><div class="detail-value">${formatDate(p.dueDate)}</div></div>
         <div class="detail-item"><label>Durum</label><div class="detail-value">${statusBadge(status)}</div></div>
       </div>
     </div>
-    <div class="detail-section">
+    <div class="detail-section financial-detail">
       <div class="detail-section-title">Ödeme Bilgileri</div>
       <div class="detail-grid">
         <div class="detail-item"><label>1. Taksit Tutarı</label><div class="detail-value" style="color:var(--success)">${i1 ? formatCurrency(i1) : '—'}</div></div>
@@ -326,6 +374,8 @@ function resetForm() {
   document.getElementById('form-title').textContent = 'Yeni Hasta Ekle';
   document.getElementById('form-submit-btn').textContent = 'Hasta Kaydet';
   document.getElementById('f-remaining').value = '';
+  autoFilledDate1 = false;
+  autoFilledDate2 = false;
 }
 
 function cancelForm() {
@@ -378,17 +428,65 @@ window.updateRemaining = function() {
   document.getElementById('f-overpay').value   = remaining < 0 ? Math.abs(remaining) : 0;
 };
 
+// 1. taksit girilince tarihi bugüne set et (sadece boşsa)
+window.onInstallment1Input = function() {
+  updateRemaining();
+  const dateField = document.getElementById('f-installment1-date');
+  if (!dateField.value && document.getElementById('f-installment1-amount').value > 0) {
+    dateField.value = today();
+    autoFilledDate1 = true;
+  }
+  // NOT: 2. taksit tarihi buradan otomatik doldurulmaz; kullanıcı 2. tutarı girince doldurulur
+};
+
+// 1. taksit tarihi kullanıcı tarafından değiştirilince
+window.onInstallment1DateChange = function() {
+  autoFilledDate1 = false; // kullanıcı manuel girdi, otomatik sayma
+};
+
+// 2. taksit tarihi kullanıcı tarafından değiştirilince
+window.onInstallment2DateChange = function() {
+  autoFilledDate2 = false; // kullanıcı manuel girdi
+};
+
+// 2. taksit girilince tarihi önceki taksit tarihine set et (boşsa)
+window.onInstallment2Input = function() {
+  updateRemaining();
+  const date2Field = document.getElementById('f-installment2-date');
+  if (!date2Field.value && document.getElementById('f-installment2-amount').value > 0) {
+    const date1 = document.getElementById('f-installment1-date').value;
+    date2Field.value = date1 || today();
+    autoFilledDate2 = true;
+  }
+};
+
 document.getElementById('patient-form').addEventListener('submit', async e => {
   e.preventDefault();
+
+  const i1 = Number(document.getElementById('f-installment1-amount').value) || 0;
+  const i2 = Number(document.getElementById('f-installment2-amount').value) || 0;
+  let date1 = document.getElementById('f-installment1-date').value;
+  let date2 = document.getElementById('f-installment2-date').value;
+
+  // Taksit tutarı girilmiş ama tarih boşsa uyar (her durumda — otomatik ya da manuel)
+  const missingDate1 = i1 > 0 && !date1;
+  const missingDate2 = i2 > 0 && !date2;
+  if (missingDate1 || missingDate2) {
+    if (!confirm('Taksit ödemesi için tarih girmediniz. Bugünün tarihi otomatik olarak girilsin mi?')) {
+      return; // sayfada kal, tarihler zaten boş
+    }
+    // Onaylandı — boş olanları bugünle doldur
+    const todayStr = today();
+    if (missingDate1) { date1 = todayStr; document.getElementById('f-installment1-date').value = todayStr; }
+    if (missingDate2) { date2 = todayStr; document.getElementById('f-installment2-date').value = todayStr; }
+  }
 
   const sel = document.getElementById('f-package');
   const selOpt = sel.options[sel.selectedIndex];
   const packageId = sel.value;
   const packageName = selOpt ? selOpt.text.split(' —')[0] : '';
 
-  const inv  = Number(document.getElementById('f-invoice-amount').value) || 0;
-  const i1   = Number(document.getElementById('f-installment1-amount').value) || 0;
-  const i2   = Number(document.getElementById('f-installment2-amount').value) || 0;
+  const inv = Number(document.getElementById('f-invoice-amount').value) || 0;
 
   const data = {
     name:                 document.getElementById('f-name').value.trim(),
@@ -400,9 +498,9 @@ document.getElementById('patient-form').addEventListener('submit', async e => {
     dueDays:              Number(document.querySelector('input[name="due-days"]:checked')?.value) || 0,
     dueDate:              document.getElementById('f-due-date').value,
     installment1Amount:   i1,
-    installment1Date:     document.getElementById('f-installment1-date').value,
+    installment1Date:     date1,
     installment2Amount:   i2,
-    installment2Date:     document.getElementById('f-installment2-date').value,
+    installment2Date:     date2,
     remaining:            Math.max(0, inv - i1 - i2),
     updatedAt:            new Date().toISOString()
   };
@@ -437,9 +535,16 @@ window.editPatient = function(id) {
   document.getElementById('f-clincheck-date').value      = p.clincheckDate || '';
   document.getElementById('f-due-date').value            = p.dueDate || '';
   document.getElementById('f-installment1-amount').value = p.installment1Amount || '';
-  document.getElementById('f-installment1-date').value   = p.installment1Date || '';
+  // Tarih yoksa bugün (otomatik atama — flag set et)
+  const edit_i1date = p.installment1Date || (p.installment1Amount ? today() : '');
+  document.getElementById('f-installment1-date').value   = edit_i1date;
+  autoFilledDate1 = !p.installment1Date && !!p.installment1Amount;
+
   document.getElementById('f-installment2-amount').value = p.installment2Amount || '';
-  document.getElementById('f-installment2-date').value   = p.installment2Date || '';
+  // 2. taksit tarihi yoksa 1. taksit tarihi, o da yoksa bugün (otomatik atama — flag set et)
+  const edit_i2date = p.installment2Date || (p.installment2Amount ? (edit_i1date || today()) : '');
+  document.getElementById('f-installment2-date').value   = edit_i2date;
+  autoFilledDate2 = !p.installment2Date && !!p.installment2Amount;
 
   // Paket seç ve fatura tutarını doldur
   const sel = document.getElementById('f-package');
@@ -579,12 +684,13 @@ window.generateReport = function() {
   // Vakalar: Clincheck tarihi bu aya ait olanlar
   const casesApproved = allPatients.filter(p => p.clincheckDate && getMonthYear(p.clincheckDate) === monthKey);
 
-  // O ay tahsilat: taksit tarihi bu aya ait ödemeler (tüm hastalardan)
+  // O ay tahsilat: taksit tarihi bu aya ait ödemeler (tarih yoksa createdAt baz alınır)
   let collectedThisMonth = 0;
   allPatients.forEach(p => {
-    if (p.installment1Date && getMonthYear(p.installment1Date) === monthKey)
+    const fallback = p.createdAt ? p.createdAt.substring(0, 10) : '';
+    if ((Number(p.installment1Amount) || 0) > 0 && getInstallmentMonthYear(p.installment1Date, fallback) === monthKey)
       collectedThisMonth += Number(p.installment1Amount) || 0;
-    if (p.installment2Date && getMonthYear(p.installment2Date) === monthKey)
+    if ((Number(p.installment2Amount) || 0) > 0 && getInstallmentMonthYear(p.installment2Date, fallback) === monthKey)
       collectedThisMonth += Number(p.installment2Amount) || 0;
   });
 
@@ -766,6 +872,294 @@ window.deletePackage = async function(id) {
 };
 
 // =============================================
+//  DEVICES
+// =============================================
+function renderDevices() {
+  const tbody = document.getElementById('devices-body');
+  if (!tbody) return;
+
+  let totalDebt = 0, totalPaid = 0;
+  allDevices.forEach(d => {
+    totalDebt += Number(d.totalAmount) || 0;
+    totalPaid += Number(d.paidAmount) || 0;
+  });
+  const totalRemaining = totalDebt - totalPaid;
+
+  const statTotal = document.getElementById('device-stat-total-debt');
+  const statRem   = document.getElementById('device-stat-remaining');
+  const statPaid  = document.getElementById('device-stat-paid');
+  if (statTotal) statTotal.textContent = formatCurrency(totalDebt);
+  if (statRem)   statRem.textContent   = formatCurrency(Math.max(0, totalRemaining));
+  if (statPaid)  statPaid.textContent  = formatCurrency(totalPaid);
+
+  if (!allDevices.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-row">Henüz cihaz eklenmemiş.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = allDevices.map(d => {
+    const total     = Number(d.totalAmount) || 0;
+    const paid      = Number(d.paidAmount)  || 0;
+    const remaining = Math.max(0, total - paid);
+    const rowClass  = remaining > 0 ? 'amount-overdue' : 'amount-paid';
+    const instHtml  = (d.installments || []).length
+      ? (d.installments || []).map((inst, i) =>
+          `<small>${i+1}. ${formatCurrency(inst.amount)}${inst.date ? ' — ' + formatDate(inst.date) : ''}</small>`
+        ).join('<br>')
+      : '—';
+    return `<tr>
+      <td><strong>${escHtml(d.name)}</strong></td>
+      <td>${escHtml(d.company || '—')}</td>
+      <td class="amount">${formatCurrency(total)}</td>
+      <td>${formatDate(d.invoiceDate)}</td>
+      <td class="amount-paid">${formatCurrency(paid)}</td>
+      <td class="${rowClass}">${remaining > 0 ? formatCurrency(remaining) : '✓ Ödendi'}</td>
+      <td>${instHtml}</td>
+      <td>${formatDate(d.date)}</td>
+      <td>${escHtml(d.notes || '—')}</td>
+      <td>
+        <button class="btn-icon" title="Düzenle" onclick="editDevice('${d.id}')">&#9999;️</button>
+        <button class="btn-icon" title="Sil" onclick="deleteDevice('${d.id}')">&#128465;️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+window.updateDeviceRemaining = function() {
+  const total = Number(document.getElementById('dev-total').value) || 0;
+  const rows  = document.querySelectorAll('.dev-inst-amount');
+  let paid = 0;
+  rows.forEach(r => { paid += Number(r.value) || 0; });
+  document.getElementById('dev-paid-display').value = formatCurrency(paid);
+  document.getElementById('dev-remaining').value    = formatCurrency(Math.max(0, total - paid));
+};
+
+window.addDeviceInstallment = function(amount = '', date = '') {
+  const list = document.getElementById('dev-installments-list');
+  const idx  = list.children.length + 1;
+  const row  = document.createElement('div');
+  row.className = 'form-row dev-inst-row';
+  row.style.alignItems = 'center';
+  row.innerHTML = `
+    <div class="form-group">
+      <label>${idx}. Taksit Tutarı (₺)</label>
+      <input type="number" class="dev-inst-amount" min="0" placeholder="0" value="${escHtml(String(amount))}" oninput="updateDeviceRemaining()" />
+    </div>
+    <div class="form-group">
+      <label>${idx}. Taksit Tarihi</label>
+      <input type="date" class="dev-inst-date" value="${escHtml(date)}" />
+    </div>
+    <button type="button" class="btn-icon" style="margin-top:20px;flex-shrink:0" title="Kaldır" onclick="this.closest('.dev-inst-row').remove(); updateDeviceRemaining(); renumberDeviceInstallments();">✕</button>
+  `;
+  list.appendChild(row);
+  updateDeviceRemaining();
+};
+
+window.renumberDeviceInstallments = function() {
+  document.querySelectorAll('.dev-inst-row').forEach((row, i) => {
+    const labels = row.querySelectorAll('label');
+    if (labels[0]) labels[0].textContent = `${i + 1}. Taksit Tutarı (₺)`;
+    if (labels[1]) labels[1].textContent = `${i + 1}. Taksit Tarihi`;
+  });
+};
+
+window.showAddDeviceModal = function() {
+  document.getElementById('dev-edit-id').value        = '';
+  document.getElementById('dev-name').value           = '';
+  document.getElementById('dev-company').value        = '';
+  document.getElementById('dev-total').value          = '';
+  document.getElementById('dev-invoice-date').value   = '';
+  document.getElementById('dev-date').value           = '';
+  document.getElementById('dev-notes').value          = '';
+  document.getElementById('dev-paid-display').value   = '';
+  document.getElementById('dev-remaining').value      = '';
+  document.getElementById('dev-installments-list').innerHTML = '';
+  document.getElementById('modal-device-title').textContent  = 'Yeni Cihaz Ekle';
+  openModal('modal-device');
+};
+
+window.editDevice = function(id) {
+  const d = allDevices.find(x => x.id === id);
+  if (!d) return;
+  document.getElementById('dev-edit-id').value        = id;
+  document.getElementById('dev-name').value           = d.name || '';
+  document.getElementById('dev-company').value        = d.company || '';
+  document.getElementById('dev-total').value          = d.totalAmount || '';
+  document.getElementById('dev-invoice-date').value   = d.invoiceDate || '';
+  document.getElementById('dev-date').value           = d.date || '';
+  document.getElementById('dev-notes').value          = d.notes || '';
+  // Taksitleri doldur
+  document.getElementById('dev-installments-list').innerHTML = '';
+  (d.installments || []).forEach(inst => addDeviceInstallment(inst.amount, inst.date));
+  window.updateDeviceRemaining();
+  document.getElementById('modal-device-title').textContent = 'Cihazı Düzenle';
+  openModal('modal-device');
+};
+
+window.saveDevice = async function() {
+  const name  = document.getElementById('dev-name').value.trim();
+  const total = Number(document.getElementById('dev-total').value);
+  if (!name || !total) { showToast('Cihaz adı ve toplam tutar zorunlu.', 'error'); return; }
+
+  // Taksitleri topla
+  const installments = [];
+  let paidTotal = 0;
+  document.querySelectorAll('.dev-inst-row').forEach(row => {
+    const amount = Number(row.querySelector('.dev-inst-amount').value) || 0;
+    const date   = row.querySelector('.dev-inst-date').value;
+    installments.push({ amount, date });
+    paidTotal += amount;
+  });
+
+  const data = {
+    name,
+    company:     document.getElementById('dev-company').value.trim(),
+    totalAmount: total,
+    paidAmount:  paidTotal,
+    invoiceDate: document.getElementById('dev-invoice-date').value,
+    date:        document.getElementById('dev-date').value,
+    notes:       document.getElementById('dev-notes').value.trim(),
+    installments,
+    updatedAt:   new Date().toISOString()
+  };
+
+  const editId = document.getElementById('dev-edit-id').value;
+  try {
+    if (editId) {
+      await updateDoc(doc(db, 'devices', editId), data);
+      showToast('Cihaz güncellendi.', 'success');
+    } else {
+      data.createdAt = new Date().toISOString();
+      await addDoc(collection(db, 'devices'), data);
+      showToast('Cihaz eklendi.', 'success');
+    }
+    closeModal();
+  } catch (err) {
+    showToast('Hata: ' + err.message, 'error');
+  }
+};
+
+window.deleteDevice = async function(id) {
+  if (!confirm('Bu cihazı silmek istediğinize emin misiniz?')) return;
+  try {
+    await deleteDoc(doc(db, 'devices', id));
+    showToast('Cihaz silindi.', 'success');
+  } catch (err) {
+    showToast('Hata: ' + err.message, 'error');
+  }
+};
+
+// =============================================
+//  INCEPTION BALANCE (Hesap Milad Bilançosu)
+// =============================================
+let inceptionData = {};
+
+async function loadInceptionBalance() {
+  try {
+    const ref  = doc(db, 'settings', 'inception_balance');
+    const snap = await getDoc(ref);
+    inceptionData = snap.exists() ? snap.data() : {};
+  } catch (err) {
+    inceptionData = {};
+  }
+  fillInceptionForm();
+  updateInceptionSummary();
+}
+
+function fillInceptionForm() {
+  document.getElementById('inc-start-date').value     = inceptionData.startDate      || '';
+  document.getElementById('inc-notes').value          = inceptionData.notes          || '';
+  document.getElementById('inc-total-invoice').value  = inceptionData.totalInvoice   || '';
+  document.getElementById('inc-total-collected').value= inceptionData.totalCollected || '';
+  document.getElementById('inc-device-debt').value    = inceptionData.deviceDebt     || '';
+  document.getElementById('inc-device-paid').value    = inceptionData.devicePaid     || '';
+}
+
+window.updateInceptionSummary = function() {
+  // Önceki dönem değerleri
+  const prevInvoice   = Number(document.getElementById('inc-total-invoice')?.value)   || 0;
+  const prevCollected = Number(document.getElementById('inc-total-collected')?.value) || 0;
+  const prevDevDebt   = Number(document.getElementById('inc-device-debt')?.value)     || 0;
+  const prevDevPaid   = Number(document.getElementById('inc-device-paid')?.value)     || 0;
+
+  // Mevcut sistem verileri
+  let curInvoice = 0, curCollected = 0;
+  allPatients.forEach(p => {
+    curInvoice   += Number(p.invoiceAmount)    || 0;
+    curCollected += (Number(p.installment1Amount) || 0) + (Number(p.installment2Amount) || 0);
+  });
+  let curDevDebt = 0, curDevPaid = 0;
+  allDevices.forEach(d => {
+    curDevDebt += Number(d.totalAmount) || 0;
+    curDevPaid += Number(d.paidAmount)  || 0;
+  });
+
+  const totalInvoice      = prevInvoice + curInvoice;
+  const totalCollected    = prevCollected + curCollected;
+  const totalRemaining    = totalInvoice - totalCollected;
+  const totalDevInvoice   = prevDevDebt + curDevDebt;
+  const totalDevPaid      = prevDevPaid + curDevPaid;
+  const totalDevDebt      = totalDevInvoice - totalDevPaid;
+  const grandTotalInvoice = totalInvoice + totalDevInvoice;
+  const grandTotalPaid    = totalCollected + totalDevPaid;
+  const grandBalance      = grandTotalInvoice - grandTotalPaid;
+
+  const el = (id) => document.getElementById(id);
+  if (el('inc-sum-invoice'))          el('inc-sum-invoice').textContent          = formatCurrency(totalInvoice);
+  if (el('inc-sum-collected'))        el('inc-sum-collected').textContent        = formatCurrency(totalCollected);
+  if (el('inc-sum-remaining'))        el('inc-sum-remaining').textContent        = formatCurrency(Math.max(0, totalRemaining));
+  if (el('inc-sum-device-invoice'))   el('inc-sum-device-invoice').textContent   = formatCurrency(totalDevInvoice);
+  if (el('inc-sum-device-paid'))      el('inc-sum-device-paid').textContent      = formatCurrency(totalDevPaid);
+  if (el('inc-sum-grand-invoice'))    el('inc-sum-grand-invoice').textContent    = formatCurrency(grandTotalInvoice);
+  if (el('inc-sub-patient-invoice'))  el('inc-sub-patient-invoice').textContent  = formatCurrency(totalInvoice);
+  if (el('inc-sub-device-invoice'))   el('inc-sub-device-invoice').textContent   = formatCurrency(totalDevInvoice);
+  if (el('inc-sum-grand-paid'))       el('inc-sum-grand-paid').textContent       = formatCurrency(grandTotalPaid);
+  if (el('inc-sub-patient-paid'))     el('inc-sub-patient-paid').textContent     = formatCurrency(totalCollected);
+  if (el('inc-sub-device-paid'))      el('inc-sub-device-paid').textContent      = formatCurrency(totalDevPaid);
+  if (el('inc-sum-grand-balance')) {
+    const balEl   = el('inc-sum-grand-balance');
+    const cardEl  = el('inc-card-grand-balance');
+    const iconEl  = el('inc-icon-grand-balance');
+    if (grandBalance > 0) {
+      balEl.textContent  = '+' + formatCurrency(grandBalance);
+      balEl.style.color  = 'var(--danger)';
+      if (cardEl) cardEl.style.borderLeftColor = 'var(--danger)';
+      if (iconEl) iconEl.textContent = '🟥';
+    } else if (grandBalance < 0) {
+      balEl.textContent  = '−' + formatCurrency(Math.abs(grandBalance));
+      balEl.style.color  = 'var(--success)';
+      if (cardEl) cardEl.style.borderLeftColor = 'var(--success)';
+      if (iconEl) iconEl.textContent = '🟩';
+    } else {
+      balEl.textContent  = formatCurrency(0);
+      balEl.style.color  = '';
+      if (cardEl) cardEl.style.borderLeftColor = 'var(--gray-300)';
+      if (iconEl) iconEl.textContent = '⚖️';
+    }
+  }
+};
+
+window.saveInceptionBalance = async function() {
+  const data = {
+    startDate:      document.getElementById('inc-start-date').value,
+    notes:          document.getElementById('inc-notes').value.trim(),
+    totalInvoice:   Number(document.getElementById('inc-total-invoice').value)   || 0,
+    totalCollected: Number(document.getElementById('inc-total-collected').value) || 0,
+    deviceDebt:     Number(document.getElementById('inc-device-debt').value)     || 0,
+    devicePaid:     Number(document.getElementById('inc-device-paid').value)     || 0,
+    updatedAt:      new Date().toISOString()
+  };
+  try {
+    await setDoc(doc(db, 'settings', 'inception_balance'), data);
+    inceptionData = data;
+    showToast('Milad bilançosu kaydedildi.', 'success');
+    updateInceptionSummary();
+  } catch (err) {
+    showToast('Hata: ' + err.message, 'error');
+  }
+};
+
+// =============================================
 //  MODAL HELPERS
 // =============================================
 function openModal(id) {
@@ -801,5 +1195,4 @@ function escHtml(str) {
 // =============================================
 //  INIT
 // =============================================
-startListeners();
-showPage('dashboard');
+// Uygulama giriş ekranından başlar; startListeners() selectRole() içinden çağrılır.
