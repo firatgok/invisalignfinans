@@ -409,7 +409,14 @@ window.updatePackagePrice = function() {
 window.updateDueDate = function() {
   const clincheck = document.getElementById('f-clincheck-date').value;
   const checked = document.querySelector('input[name="due-days"]:checked');
-  const days = checked ? parseInt(checked.value) : 0;
+  let days = 0;
+  if (checked) {
+    if (checked.value === 'manuel') {
+      days = parseInt(document.getElementById('f-due-days-manuel').value) || 0;
+    } else {
+      days = parseInt(checked.value);
+    }
+  }
   if (clincheck && days > 0) {
     const d = new Date(clincheck);
     d.setDate(d.getDate() + days);
@@ -495,7 +502,12 @@ document.getElementById('patient-form').addEventListener('submit', async e => {
     packageName,
     invoiceAmount:        inv,
     clincheckDate:        document.getElementById('f-clincheck-date').value,
-    dueDays:              Number(document.querySelector('input[name="due-days"]:checked')?.value) || 0,
+    dueDays: (function() {
+      const checked = document.querySelector('input[name="due-days"]:checked');
+      if (!checked) return 0;
+      if (checked.value === 'manuel') return Number(document.getElementById('f-due-days-manuel').value) || 0;
+      return Number(checked.value);
+    })(),
     dueDate:              document.getElementById('f-due-date').value,
     installment1Amount:   i1,
     installment1Date:     date1,
@@ -552,9 +564,22 @@ window.editPatient = function(id) {
   document.getElementById('f-invoice-amount').value = p.invoiceAmount || '';
 
   // Vade günü radyo butonunu seç
-  document.querySelectorAll('input[name="due-days"]').forEach(r => {
-    r.checked = Number(r.value) === Number(p.dueDays);
-  });
+  const standardValues = ['30', '90', '120', '180'];
+  const dueDaysStr = String(p.dueDays);
+  if (standardValues.includes(dueDaysStr)) {
+    document.querySelectorAll('input[name="due-days"]').forEach(r => {
+      r.checked = r.value === dueDaysStr;
+    });
+    document.getElementById('f-due-days-manuel').value = '';
+  } else if (p.dueDays > 0) {
+    document.querySelectorAll('input[name="due-days"]').forEach(r => {
+      r.checked = r.value === 'manuel';
+    });
+    document.getElementById('f-due-days-manuel').value = p.dueDays;
+  } else {
+    document.querySelectorAll('input[name="due-days"]').forEach(r => r.checked = false);
+    document.getElementById('f-due-days-manuel').value = '';
+  }
 
   updateRemaining();
 

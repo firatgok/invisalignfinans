@@ -241,7 +241,15 @@
                     <input type="radio" name="due-days" value="90" onchange="updateDueDate()" /> 90 Gün
                   </label>
                   <label class="radio-label">
+                    <input type="radio" name="due-days" value="120" onchange="updateDueDate()" /> 120 Gün
+                  </label>
+                  <label class="radio-label">
                     <input type="radio" name="due-days" value="180" onchange="updateDueDate()" /> 180 Gün
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="due-days" value="manuel" onchange="updateDueDate()" /> Manuel
+                    <input type="number" id="f-due-days-manuel" min="1" max="9999" placeholder="Gün" style="width:70px;margin-left:6px;display:inline-block;" oninput="document.querySelector('input[name=\'due-days\'][value=\'manuel\']').checked=true; updateDueDate()" />
+                    <span style="margin-left:4px;font-size:13px;color:var(--gray-500);">gün</span>
                   </label>
                 </div>
               </div>
